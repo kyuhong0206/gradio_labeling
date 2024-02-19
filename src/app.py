@@ -44,8 +44,9 @@ def start_func(user_dropdown):
     etrieved_data_dict = pickle.loads(data_bytes)
     image_file_path = etrieved_data_dict['file_path']
     class_name = etrieved_data_dict['class_name']
+    anno_text = etrieved_data_dict['annotation']
 
-    return Image.open(image_file_path), class_name
+    return Image.open(image_file_path), class_name, anno_text
 
 
 
@@ -60,7 +61,6 @@ def anno_func(anno):
     etrieved_data_dict['annotation'] = anno
     dict_bytes = pickle.dumps(etrieved_data_dict)
     db[index] = dict_bytes
-
     db.sync()
 
     index = index_changer(index, increase = True)
@@ -68,15 +68,15 @@ def anno_func(anno):
     etrieved_data_dict = pickle.loads(data_bytes)
     image_file_path = etrieved_data_dict['file_path']
     class_name = etrieved_data_dict['class_name']
+    anno_text = etrieved_data_dict['annotation']
     index_db[user_name.encode()] = index
     index_db.sync()
 
-    return Image.open(image_file_path), class_name
+    return Image.open(image_file_path), class_name, anno_text
 
 def move_func(status):
     global image_data_dict
     global index
-
 
     if status == 'prev':
         index = index_changer(index, increase = False)
@@ -84,16 +84,16 @@ def move_func(status):
         etrieved_data_dict = pickle.loads(data_bytes)
         image_file_path = etrieved_data_dict['file_path']
         class_name = etrieved_data_dict['class_name']
-
-        return Image.open(image_file_path), class_name
+        anno_text = etrieved_data_dict['annotation']
+        return Image.open(image_file_path), class_name, anno_text
     if status == 'next':
         index = index_changer(index, increase = True)
         data_bytes = db[index]
         etrieved_data_dict = pickle.loads(data_bytes)
         image_file_path = etrieved_data_dict['file_path']
         class_name = etrieved_data_dict['class_name']
-
-        return Image.open(image_file_path), class_name
+        anno_text = etrieved_data_dict['annotation']
+        return Image.open(image_file_path), class_name, anno_text
 
 with gr.Blocks() as demo:
     gr.Markdown("label test")
@@ -109,17 +109,22 @@ with gr.Blocks() as demo:
     with gr.Row():
         true_button = gr.Button('True')
         false_button = gr.Button('False')
+        skip_button = gr.Button('Skip')
+    with gr.Row():
+        anno_text = gr.Textbox(value = 'annotation here!!')
 
-    true_anno = gr.Textbox(value = 'True', visible =False)
-    false_anno = gr.Textbox(value = 'False', visible =False)
+    true_anno = gr.Textbox(value = 'True', visible = False)
+    false_anno = gr.Textbox(value = 'False', visible = False)
+    skip_anno = gr.Textbox(value = 'Skip', visible = False)
 
     prev_text = gr.Textbox(value = 'prev', visible =False)
     next_text = gr.Textbox(value = 'next', visible =False)
 
-    start_button.click(start_func, inputs=[user_dropdown], outputs=[image_output, class_text])
-    true_button.click(anno_func, inputs=[true_anno], outputs=[image_output, class_text])
-    false_button.click(anno_func, inputs=[false_anno], outputs=[image_output, class_text])
-    prev_button.click(move_func, inputs = prev_text, outputs=[image_output, class_text])
-    next_button.click(move_func, inputs = next_text, outputs=[image_output, class_text])
+    start_button.click(start_func, inputs = [user_dropdown], outputs = [image_output, class_text, anno_text])
+    true_button.click(anno_func, inputs = [true_anno], outputs = [image_output, class_text, anno_text])
+    false_button.click(anno_func, inputs = [false_anno], outputs = [image_output, class_text, anno_text])
+    skip_button.click(anno_func, inputs = [skip_anno], outputs = [image_output, class_text, anno_text])
+    prev_button.click(move_func, inputs = prev_text, outputs=[image_output, class_text, anno_text])
+    next_button.click(move_func, inputs = next_text, outputs=[image_output, class_text, anno_text])
 
 demo.launch(ssl_verify=False,share=True,server_name="0.0.0.0")
