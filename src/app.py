@@ -1,13 +1,23 @@
 import bsddb3.db as bdb
 import gradio as gr
 import json
+import pickle
 from PIL import Image
 
 db = None
 image_data_dict = None
 index = None
+etrieved_data_dict = None
+index_db = None
+user_name = None
 
-
+def index_changer(input_index, increase = True):
+    input_index = int(input_index.decode())
+    if increase:
+        input_index +=1
+        return str(input_index).encode()
+    input_index -=1
+    return str(input_index).encode()
 
 def display_image(image_path):
     return Image.open(image_path)
@@ -16,47 +26,79 @@ def start_func(user_dropdown):
     global db
     global image_data_dict
     global index
+    global etrieved_data_dict
+    global index_db
+    global user_name
 
     user_name = user_dropdown
 
-    with open(f'/home/ai04/data/label_test_data/{user_name}_task.json', 'r') as f:
-        image_data_dict = json.load(f)
     # set DB
     db = bdb.DB()
-    db.open(f"/home/ai04/data/user_db/{user_name}.db", None, bdb.DB_HASH, bdb.DB_CREATE)
-    for item in list(image_data_dict.keys()):
-        if db.get(item.encode('utf-8')):
-            del image_data_dict[item]
+    db.open(f"/home/ai04/workspace/gradio_labeling/data/{user_name}.db", None, bdb.DB_HASH, bdb.DB_CREATE)
 
-    print(image_data_dict)
-    index = 0
-    return Image.open(list(image_data_dict.keys())[index]), list(image_data_dict.keys())[index]
+    index_db = bdb.DB()
+    index_db.open("/home/ai04/workspace/gradio_labeling/data/user_index.db", None, bdb.DB_HASH, bdb.DB_CREATE)
+
+    index = index_db[user_name.encode()]
+    data_bytes = db[index]
+    etrieved_data_dict = pickle.loads(data_bytes)
+    image_file_path = etrieved_data_dict['file_path']
+    class_name = etrieved_data_dict['class_name']
+
+    return Image.open(image_file_path), class_name
+
+
 
 def anno_func(anno):
     global db
     global image_data_dict
     global index
+    global etrieved_data_dict
+    global index_db
+    global user_name
 
-    db[list(image_data_dict.keys())[index].encode()] = anno.encode()
+    etrieved_data_dict['annotation'] = anno
+    dict_bytes = pickle.dumps(etrieved_data_dict)
+    db[index] = dict_bytes
+
     db.sync()
-    index += 1
-    return Image.open(list(image_data_dict.keys())[index])
+
+    index = index_changer(index, increase = True)
+    data_bytes = db[index]
+    etrieved_data_dict = pickle.loads(data_bytes)
+    image_file_path = etrieved_data_dict['file_path']
+    class_name = etrieved_data_dict['class_name']
+    index_db[user_name.encode()] = index
+    index_db.sync()
+
+    return Image.open(image_file_path), class_name
 
 def move_func(status):
     global image_data_dict
     global index
+
+
     if status == 'prev':
-        index -= 1
-        return Image.open(list(image_data_dict.keys())[index])
+        index = index_changer(index, increase = False)
+        data_bytes = db[index]
+        etrieved_data_dict = pickle.loads(data_bytes)
+        image_file_path = etrieved_data_dict['file_path']
+        class_name = etrieved_data_dict['class_name']
+
+        return Image.open(image_file_path), class_name
     if status == 'next':
-        index += 1
-        return Image.open(list(image_data_dict.keys())[index])
+        index = index_changer(index, increase = True)
+        data_bytes = db[index]
+        etrieved_data_dict = pickle.loads(data_bytes)
+        image_file_path = etrieved_data_dict['file_path']
+        class_name = etrieved_data_dict['class_name']
+
+        return Image.open(image_file_path), class_name
 
 with gr.Blocks() as demo:
     gr.Markdown("label test")
     with gr.Row():
-        image_path = gr.Textbox(visible =False)
-        user_dropdown = gr.Dropdown(["user1", "user2", "user3"], label = "user")
+        user_dropdown = gr.Dropdown(["user1", "user2", "user3","test"], label = "user")
         start_button = gr.Button('start')
     with gr.Row():
         prev_button = gr.Button('prev')
@@ -74,10 +116,10 @@ with gr.Blocks() as demo:
     prev_text = gr.Textbox(value = 'prev', visible =False)
     next_text = gr.Textbox(value = 'next', visible =False)
 
-    start_button.click(start_func, inputs=[user_dropdown], outputs=[image_output, image_path])
-    true_button.click(anno_func, inputs=[true_anno], outputs = image_output)
-    false_button.click(anno_func, inputs=[false_anno], outputs = image_output)
-    prev_button.click(move_func, inputs = prev_text, outputs = image_output)
-    next_button.click(move_func, inputs = next_text, outputs = image_output)
+    start_button.click(start_func, inputs=[user_dropdown], outputs=[image_output, class_text])
+    true_button.click(anno_func, inputs=[true_anno], outputs=[image_output, class_text])
+    false_button.click(anno_func, inputs=[false_anno], outputs=[image_output, class_text])
+    prev_button.click(move_func, inputs = prev_text, outputs=[image_output, class_text])
+    next_button.click(move_func, inputs = next_text, outputs=[image_output, class_text])
 
 demo.launch(ssl_verify=False,share=True,server_name="0.0.0.0")
