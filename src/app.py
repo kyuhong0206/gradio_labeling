@@ -111,8 +111,8 @@ with gr.Blocks() as demo:
         start_button = gr.Button('start')
     with gr.Row():
         prev_button = gr.Button('prev')
-        class_text = gr.Textbox(value = 'class name here!!')
-        index_text = gr.Textbox(value = 'index')
+        class_text = gr.Textbox(value = 'class name here!!', container = False)
+        index_text = gr.Textbox(value = 'index', container = False)
         next_button = gr.Button('next')
     with gr.Row():
         image_output = gr.Image()
@@ -121,7 +121,7 @@ with gr.Blocks() as demo:
         false_button = gr.Button('False')
         skip_button = gr.Button('Skip')
     with gr.Row():
-        anno_text = gr.Textbox(value = 'annotation here!!')
+        anno_text = gr.Textbox(value = 'annotation here!!', container = False)
 
     true_anno = gr.Textbox(value = 'True', visible = False)
     false_anno = gr.Textbox(value = 'False', visible = False)
@@ -137,4 +137,4 @@ with gr.Blocks() as demo:
     prev_button.click(move_func, inputs = prev_text, outputs=[image_output, class_text, anno_text, index_text])
     next_button.click(move_func, inputs = next_text, outputs=[image_output, class_text, anno_text, index_text])
 
-demo.launch(ssl_verify=False, share=True,server_name="0.0.0.0")
+demo.launch(ssl_verify=False, share=True, server_name="0.0.0.0")
