@@ -96,9 +96,20 @@ def move_func(status):
         return Image.open(image_file_path), class_name, anno_text
 
 with gr.Blocks() as demo:
+    db = gr.State()
+    image_data_dict = gr.State()
+
+    index =gr.State()
+
+    etrieved_data_dict =gr.State()
+
+    index_db = gr.State()
+
+    user_name  = gr.State()
+
     gr.Markdown("label test")
     with gr.Row():
-        user_dropdown = gr.Dropdown(["user1", "user2", "user3","test"], label = "user")
+        user_dropdown = gr.Dropdown(["test", "test2", "test3"], label = "user")
         start_button = gr.Button('start')
     with gr.Row():
         prev_button = gr.Button('prev')
@@ -127,4 +138,4 @@ with gr.Blocks() as demo:
     prev_button.click(move_func, inputs = prev_text, outputs=[image_output, class_text, anno_text])
     next_button.click(move_func, inputs = next_text, outputs=[image_output, class_text, anno_text])
 
-demo.launch(ssl_verify=False,share=True,server_name="0.0.0.0")
+demo.launch(ssl_verify=False, share=True,server_name="0.0.0.0")
