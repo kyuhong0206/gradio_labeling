@@ -12,7 +12,7 @@ index_db = None
 user_name = None
 
 def index_changer(input_index, increase = True):
-    input_index = int(input_index.decode())
+    input_index = int(input_index)
     if increase:
         input_index +=1
         return str(input_index).encode()
@@ -46,8 +46,7 @@ def start_func(user_dropdown):
     class_name = etrieved_data_dict['class_name']
     anno_text = etrieved_data_dict['annotation']
 
-    return Image.open(image_file_path), class_name, anno_text
-
+    return Image.open(image_file_path), class_name, anno_text, index
 
 
 def anno_func(anno):
@@ -72,7 +71,7 @@ def anno_func(anno):
     index_db[user_name.encode()] = index
     index_db.sync()
 
-    return Image.open(image_file_path), class_name, anno_text
+    return Image.open(image_file_path), class_name, anno_text, index
 
 def move_func(status):
     global image_data_dict
@@ -85,7 +84,9 @@ def move_func(status):
         image_file_path = etrieved_data_dict['file_path']
         class_name = etrieved_data_dict['class_name']
         anno_text = etrieved_data_dict['annotation']
-        return Image.open(image_file_path), class_name, anno_text
+
+        return Image.open(image_file_path), class_name, anno_text, index
+    
     if status == 'next':
         index = index_changer(index, increase = True)
         data_bytes = db[index]
@@ -93,18 +94,15 @@ def move_func(status):
         image_file_path = etrieved_data_dict['file_path']
         class_name = etrieved_data_dict['class_name']
         anno_text = etrieved_data_dict['annotation']
-        return Image.open(image_file_path), class_name, anno_text
+
+        return Image.open(image_file_path), class_name, anno_text, index
 
 with gr.Blocks() as demo:
     db = gr.State()
     image_data_dict = gr.State()
-
-    index =gr.State()
-
+    index_text =gr.State()
     etrieved_data_dict =gr.State()
-
     index_db = gr.State()
-
     user_name  = gr.State()
 
     gr.Markdown("label test")
@@ -114,6 +112,7 @@ with gr.Blocks() as demo:
     with gr.Row():
         prev_button = gr.Button('prev')
         class_text = gr.Textbox(value = 'class name here!!')
+        index_text = gr.Textbox(value = 'index')
         next_button = gr.Button('next')
     with gr.Row():
         image_output = gr.Image()
@@ -131,11 +130,11 @@ with gr.Blocks() as demo:
     prev_text = gr.Textbox(value = 'prev', visible =False)
     next_text = gr.Textbox(value = 'next', visible =False)
 
-    start_button.click(start_func, inputs = [user_dropdown], outputs = [image_output, class_text, anno_text])
-    true_button.click(anno_func, inputs = [true_anno], outputs = [image_output, class_text, anno_text])
-    false_button.click(anno_func, inputs = [false_anno], outputs = [image_output, class_text, anno_text])
-    skip_button.click(anno_func, inputs = [skip_anno], outputs = [image_output, class_text, anno_text])
-    prev_button.click(move_func, inputs = prev_text, outputs=[image_output, class_text, anno_text])
-    next_button.click(move_func, inputs = next_text, outputs=[image_output, class_text, anno_text])
+    start_button.click(start_func, inputs = [user_dropdown], outputs = [image_output, class_text, anno_text, index_text])
+    true_button.click(anno_func, inputs = [true_anno], outputs = [image_output, class_text, anno_text, index_text])
+    false_button.click(anno_func, inputs = [false_anno], outputs = [image_output, class_text, anno_text, index_text])
+    skip_button.click(anno_func, inputs = [skip_anno], outputs = [image_output, class_text, anno_text, index_text])
+    prev_button.click(move_func, inputs = prev_text, outputs=[image_output, class_text, anno_text, index_text])
+    next_button.click(move_func, inputs = next_text, outputs=[image_output, class_text, anno_text, index_text])
 
 demo.launch(ssl_verify=False, share=True,server_name="0.0.0.0")
