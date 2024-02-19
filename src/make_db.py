@@ -27,7 +27,12 @@ def make_user_index_db():
     db[b'user1'] = b'0'
     db[b'user2'] = b'0'
     db[b'user3'] = b'0'
+    db[b'test'] = b'0'
     db.close()
 
+def check_db():
+    db = bdb.DB()
+    db.open(f"/home/ai04/workspace/gradio_labeling/data/user_index.db", None, bdb.DB_HASH, bdb.DB_CREATE)
+    print(db[b'test'])
 if __name__ == '__main__':
-    make_user_index_db()
+    check_db()
