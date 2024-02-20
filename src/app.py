@@ -5,7 +5,6 @@ import pickle
 from PIL import Image
 
 db = None
-image_data_dict = None
 index = None
 etrieved_data_dict = None
 index_db = None
@@ -24,7 +23,6 @@ def display_image(image_path):
 
 def start_func(user_dropdown):
     global db
-    global image_data_dict
     global index
     global etrieved_data_dict
     global index_db
@@ -51,12 +49,12 @@ def start_func(user_dropdown):
 
 def anno_func(anno):
     global db
-    global image_data_dict
     global index
     global etrieved_data_dict
     global index_db
     global user_name
-
+    if index is None:
+        raise gr.Error("사용자를 선택해 주세요!")
     etrieved_data_dict['annotation'] = anno
     dict_bytes = pickle.dumps(etrieved_data_dict)
     db[index] = dict_bytes
@@ -71,13 +69,14 @@ def anno_func(anno):
     index_db[user_name.encode()] = index
     index_db.sync()
 
-    return Image.open(image_file_path), class_name, anno_text, index
+    return Image.open(image_file_path), class_name, anno_text, index.decode()
 
 def move_func(status):
-    global image_data_dict
     global index
 
     if status == 'prev':
+        if index is None:
+            raise gr.Error("사용자를 선택해 주세요!")
         index = index_changer(index, increase = False)
         data_bytes = db[index]
         etrieved_data_dict = pickle.loads(data_bytes)
@@ -85,9 +84,11 @@ def move_func(status):
         class_name = etrieved_data_dict['class_name']
         anno_text = etrieved_data_dict['annotation']
 
-        return Image.open(image_file_path), class_name, anno_text, index
+        return Image.open(image_file_path), class_name, anno_text, index.decode()
     
     if status == 'next':
+        if index is None:
+            raise gr.Error("사용자를 선택해 주세요!")
         index = index_changer(index, increase = True)
         data_bytes = db[index]
         etrieved_data_dict = pickle.loads(data_bytes)
@@ -95,17 +96,16 @@ def move_func(status):
         class_name = etrieved_data_dict['class_name']
         anno_text = etrieved_data_dict['annotation']
 
-        return Image.open(image_file_path), class_name, anno_text, index
+        return Image.open(image_file_path), class_name, anno_text, index.decode()
 
-with gr.Blocks() as demo:
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
     db = gr.State()
-    image_data_dict = gr.State()
     index_text =gr.State()
     etrieved_data_dict =gr.State()
     index_db = gr.State()
     user_name  = gr.State()
 
-    gr.Markdown("label test")
+    gr.Markdown("Huray Label Studio")
     with gr.Row():
         user_dropdown = gr.Dropdown(["test", "test2", "test3"], label = "user")
         start_button = gr.Button('start')
@@ -115,10 +115,11 @@ with gr.Blocks() as demo:
         index_text = gr.Textbox(value = 'index', container = False)
         next_button = gr.Button('next')
     with gr.Row():
-        image_output = gr.Image()
+        image_output = gr.Image(height = 600, interactive = False)
     with gr.Row():
-        true_button = gr.Button('True')
+        true_button = gr.Button('True', variant="primary")
         false_button = gr.Button('False')
+    with gr.Row():
         skip_button = gr.Button('Skip')
     with gr.Row():
         anno_text = gr.Textbox(value = 'annotation here!!', container = False)
