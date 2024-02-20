@@ -5,7 +5,7 @@ import pickle
 from PIL import Image
 
 db = None
-index = None
+# index = None
 etrieved_data_dict = None
 index_db = None
 user_name = None
@@ -23,7 +23,7 @@ def display_image(image_path):
 
 def start_func(user_dropdown):
     global db
-    global index
+    # global index
     global etrieved_data_dict
     global index_db
     global user_name
@@ -44,12 +44,12 @@ def start_func(user_dropdown):
     class_name = etrieved_data_dict['class_name']
     anno_text = etrieved_data_dict['annotation']
 
-    return Image.open(image_file_path), class_name, anno_text, index
+    return Image.open(image_file_path), class_name, anno_text, index.decode()
 
 
-def anno_func(anno):
+def anno_func(anno, index):
     global db
-    global index
+    # global index
     global etrieved_data_dict
     global index_db
     global user_name
@@ -57,7 +57,7 @@ def anno_func(anno):
         raise gr.Error("사용자를 선택해 주세요!")
     etrieved_data_dict['annotation'] = anno
     dict_bytes = pickle.dumps(etrieved_data_dict)
-    db[index] = dict_bytes
+    db[index.encode()] = dict_bytes
     db.sync()
 
     index = index_changer(index, increase = True)
@@ -71,8 +71,8 @@ def anno_func(anno):
 
     return Image.open(image_file_path), class_name, anno_text, index.decode()
 
-def move_func(status):
-    global index
+def move_func(status, index):
+    # global index
 
     if status == 'prev':
         if index is None:
@@ -107,12 +107,14 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
 
     gr.Markdown("Huray Label Studio")
     with gr.Row():
-        user_dropdown = gr.Dropdown(["test", "test2", "test3"], label = "user")
+        with gr.Row():
+            user_dropdown = gr.Dropdown(["test", "test2", "test3"], label = "user")
+            work_check = gr.Checkbox(label="작업하지 않은 라벨만 보기"),
         start_button = gr.Button('start')
     with gr.Row():
         prev_button = gr.Button('prev')
-        class_text = gr.Textbox(value = 'class name here!!', container = False)
-        index_text = gr.Textbox(value = 'index', container = False)
+        class_text = gr.Textbox(value = 'class name here!!', container = False, interactive = False, max_lines = 1)
+        index_text = gr.Textbox(value = 'index', container = False, interactive = False, max_lines = 1)
         next_button = gr.Button('next')
     with gr.Row():
         image_output = gr.Image(height = 600, interactive = False)
@@ -122,20 +124,20 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
     with gr.Row():
         skip_button = gr.Button('Skip')
     with gr.Row():
-        anno_text = gr.Textbox(value = 'annotation here!!', container = False)
+        anno_text = gr.Textbox(value = 'annotation here!!', container = False, interactive = False, max_lines = 1)
 
-    true_anno = gr.Textbox(value = 'True', visible = False)
-    false_anno = gr.Textbox(value = 'False', visible = False)
-    skip_anno = gr.Textbox(value = 'Skip', visible = False)
+    true_anno = gr.Textbox(value = 'True', visible = False, interactive = False, max_lines = 1)
+    false_anno = gr.Textbox(value = 'False', visible = False, interactive = False, max_lines = 1)
+    skip_anno = gr.Textbox(value = 'Skip', visible = False, interactive = False, max_lines = 1)
 
-    prev_text = gr.Textbox(value = 'prev', visible =False)
-    next_text = gr.Textbox(value = 'next', visible =False)
+    prev_text = gr.Textbox(value = 'prev', visible =False, interactive = False, max_lines = 1)
+    next_text = gr.Textbox(value = 'next', visible =False, interactive = False, max_lines = 1)
 
     start_button.click(start_func, inputs = [user_dropdown], outputs = [image_output, class_text, anno_text, index_text])
-    true_button.click(anno_func, inputs = [true_anno], outputs = [image_output, class_text, anno_text, index_text])
-    false_button.click(anno_func, inputs = [false_anno], outputs = [image_output, class_text, anno_text, index_text])
-    skip_button.click(anno_func, inputs = [skip_anno], outputs = [image_output, class_text, anno_text, index_text])
-    prev_button.click(move_func, inputs = prev_text, outputs=[image_output, class_text, anno_text, index_text])
-    next_button.click(move_func, inputs = next_text, outputs=[image_output, class_text, anno_text, index_text])
+    true_button.click(anno_func, inputs = [true_anno, index_text], outputs = [image_output, class_text, anno_text, index_text])
+    false_button.click(anno_func, inputs = [false_anno, index_text], outputs = [image_output, class_text, anno_text, index_text])
+    skip_button.click(anno_func, inputs = [skip_anno, index_text], outputs = [image_output, class_text, anno_text, index_text])
+    prev_button.click(move_func, inputs = [prev_text, index_text], outputs=[image_output, class_text, anno_text, index_text])
+    next_button.click(move_func, inputs = [next_text, index_text], outputs=[image_output, class_text, anno_text, index_text])
 
 demo.launch(ssl_verify=False, share=True, server_name="0.0.0.0")
