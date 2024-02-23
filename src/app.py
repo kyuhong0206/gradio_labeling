@@ -35,18 +35,16 @@ def get_image_data(user_name, index, start = False):
     if start:
         item_length = len(db.keys())    
         db.close()
+
         return retrieved_data_dict, item_length
     db.close()
 
     return retrieved_data_dict
 
 def index_changer(index, increase = True):
-    index = int(index)
     if increase:
-        index += 1
-        return index
-    index -= 1
-    return index
+        return int(index) + 1
+    return int(index) -1
 
 def filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = True):
     anno_text = retrieved_data_dict.get('annotation', '')
@@ -114,43 +112,26 @@ def anno_func(user_dropdown, anno, index, work_check):
 
 def move_func(user_dropdown, status, index, work_check, item_length):
     if status == 'prev':
+        increase = False
         if int(index) == 0:
             raise gr.Error('첫번째 데이터입니다.')
-        else:
-            index = index_changer(index, increase = False)
+        index = index_changer(index, increase = increase)
         retrieved_data_dict = get_image_data(user_dropdown, index)
-        if work_check:
-            index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = False)
-        image_file_path = retrieved_data_dict['file_path']
-        class_name = retrieved_data_dict['class_name']
-        anno_text = retrieved_data_dict.get('annotation', '')
-        
-        return display_image(image_file_path), class_name, anno_text, index
-    
-    if status == 'next':
+    else:
+        increase = True
         if int(index) > int(item_length):
             raise gr.Error('마지막 데이터입니다.')
-        index = index_changer(index, increase = True)
+        if status == 'next':
+            index = index_changer(index, increase = increase)
         retrieved_data_dict = get_image_data(user_dropdown, index)
-        if work_check:
-            index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict)
-        image_file_path = retrieved_data_dict['file_path']
-        class_name = retrieved_data_dict['class_name']
-        anno_text = retrieved_data_dict.get('annotation', '')
+    if work_check:
+        index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = increase)
 
-        return display_image(image_file_path), class_name, anno_text, index
-    
-    if status == 'move':
-        if int(index) > int(item_length):
-            raise gr.Error('마지막 데이터입니다.')
-        retrieved_data_dict = get_image_data(user_dropdown, index)
-        if work_check:
-            index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict)
-        image_file_path = retrieved_data_dict['file_path']
-        class_name = retrieved_data_dict['class_name']
-        anno_text = retrieved_data_dict.get('annotation', '')
+    image_file_path = retrieved_data_dict['file_path']
+    class_name = retrieved_data_dict['class_name']
+    anno_text = retrieved_data_dict.get('annotation', '')
 
-        return display_image(image_file_path), class_name, anno_text, index
+    return display_image(image_file_path), class_name, anno_text, index
 
 with gr.Blocks(theme = gr.themes.Soft()) as demo:
     db = gr.State()
