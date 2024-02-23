@@ -160,7 +160,6 @@ document.addEventListener('keyup', shortcuts, false);
 </script>
 """
 
-
 with gr.Blocks(head=shortcut_js, theme = gr.themes.Soft()) as demo:
     db = gr.State()
     index_text = gr.State()
@@ -178,7 +177,7 @@ with gr.Blocks(head=shortcut_js, theme = gr.themes.Soft()) as demo:
                 true_button = gr.Button('True', variant="primary", elem_id="anno_true_btn")
                 false_button = gr.Button('False', elem_id="anno_false_btn")
             with gr.Row():
-                skip_button = gr.Button('Unkown', elem_id="anno_skip_btn")
+                skip_button = gr.Button('unknown', elem_id="anno_skip_btn")
         with gr.Column(scale=2):
             gr.Markdown("""# Huray Label Studio""")
             with gr.Row():
@@ -192,9 +191,10 @@ with gr.Blocks(head=shortcut_js, theme = gr.themes.Soft()) as demo:
                 anno_text = gr.Textbox(label = 'annotation', interactive = False, max_lines = 1)
                 prev_button = gr.Button('prev')
                 next_button = gr.Button('next')
+
     true_anno = gr.Textbox(value = 'True', visible = False, interactive = False, max_lines = 1)
     false_anno = gr.Textbox(value = 'False', visible = False, interactive = False, max_lines = 1)
-    skip_anno = gr.Textbox(value = 'Skip', visible = False, interactive = False, max_lines = 1)
+    skip_anno = gr.Textbox(value = 'unknown', visible = False, interactive = False, max_lines = 1)
 
     prev_text = gr.Textbox(value = 'prev', visible =False, interactive = False, max_lines = 1)
     next_text = gr.Textbox(value = 'next', visible =False, interactive = False, max_lines = 1)
