@@ -6,7 +6,6 @@ from PIL import Image as PILIMAGE
 DBPATH = '/home/ai04/workspace/gradio_labeling/data/'
 CFGHEIGHT = 600
 
-
 def get_db_connection(db_path):
     db = bdb.DB()
     db.open(db_path, None, bdb.DB_HASH, bdb.DB_CREATE)
@@ -32,21 +31,20 @@ def get_image_data(user_name, index, start = False):
     db = get_db_connection(db_path)
     data_bytes = db.get(str(index).encode())
     retrieved_data_dict = pickle.loads(data_bytes)
+
     if start:
         item_length = len(db.keys())    
         db.close()
+
         return retrieved_data_dict, item_length
     db.close()
 
     return retrieved_data_dict
 
 def index_changer(index, increase = True):
-    index = int(index)
     if increase:
-        index += 1
-        return index
-    index -= 1
-    return index
+        return int(index) + 1
+    return int(index) -1
 
 def filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = True):
     anno_text = retrieved_data_dict.get('annotation', '')
@@ -60,16 +58,20 @@ def filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = 
 def put_anno_data_to_db(user_name, index, anno):
     db_path = f"{DBPATH}{user_name}.db"
     index_db_path = f"{DBPATH}user_index.db"
+
     db = get_db_connection(db_path)
     index_db = get_index_db_conncection(index_db_path)
     retrieved_data_dict = get_image_data(user_name, index)
+
     retrieved_data_dict['annotation'] = anno
     dict_bytes = pickle.dumps(retrieved_data_dict)
     db[str(index).encode()] = dict_bytes
     db.sync()
+
     index = index_changer(index, increase = True)
     index_db[user_name.encode()] = str(index).encode()
     index_db.sync()
+
     db.close()
     index_db.close()
 
@@ -96,7 +98,6 @@ def start_func(user_dropdown, work_check):
     image_file_path = retrieved_data_dict['file_path']
     class_name = retrieved_data_dict['class_name']
     anno_text = retrieved_data_dict.get('annotation', '')
-
     return display_image(image_file_path), class_name, anno_text, index, item_length
 
 def anno_func(user_dropdown, anno, index, work_check):
@@ -114,45 +115,52 @@ def anno_func(user_dropdown, anno, index, work_check):
 
 def move_func(user_dropdown, status, index, work_check, item_length):
     if status == 'prev':
+        increase = False
         if int(index) == 0:
-            raise gr.Error('첫번째 데이터입니다.')
+            gr.Warning('첫번째 데이터입니다.')
         else:
+            index = index_changer(index, increase = increase)
+        retrieved_data_dict = get_image_data(user_dropdown, index)
+    else:
+        increase = True
+        if int(index) == int(item_length):
+            gr.Warning('마지막 데이터입니다.')
             index = index_changer(index, increase = False)
+        if status == 'next':
+            if int(index) == int(item_length):
+                gr.Warning('마지막 데이터입니다.')
+            else:
+                index = index_changer(index, increase = increase)
         retrieved_data_dict = get_image_data(user_dropdown, index)
-        if work_check:
-            index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = False)
-        image_file_path = retrieved_data_dict['file_path']
-        class_name = retrieved_data_dict['class_name']
-        anno_text = retrieved_data_dict.get('annotation', '')
-        
-        return display_image(image_file_path), class_name, anno_text, index
-    
-    if status == 'next':
-        if int(index) > int(item_length):
-            raise gr.Error('마지막 데이터입니다.')
-        index = index_changer(index, increase = True)
-        retrieved_data_dict = get_image_data(user_dropdown, index)
-        if work_check:
-            index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict)
-        image_file_path = retrieved_data_dict['file_path']
-        class_name = retrieved_data_dict['class_name']
-        anno_text = retrieved_data_dict.get('annotation', '')
+    if work_check:
+        index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = increase)
 
-        return display_image(image_file_path), class_name, anno_text, index
-    
-    if status == 'move':
-        if int(index) > int(item_length):
-            raise gr.Error('마지막 데이터입니다.')
-        retrieved_data_dict = get_image_data(user_dropdown, index)
-        if work_check:
-            index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict)
-        image_file_path = retrieved_data_dict['file_path']
-        class_name = retrieved_data_dict['class_name']
-        anno_text = retrieved_data_dict.get('annotation', '')
+    image_file_path = retrieved_data_dict['file_path']
+    class_name = retrieved_data_dict['class_name']
+    anno_text = retrieved_data_dict.get('annotation', '')
 
-        return display_image(image_file_path), class_name, anno_text, index
+    return display_image(image_file_path), class_name, anno_text, index
 
-with gr.Blocks(theme = gr.themes.Soft()) as demo:
+shortcut_js = """
+<script>
+function shortcuts(e) {
+
+    if (e.key == "t") {
+        document.getElementById("anno_true_btn").click();
+    }
+    if (e.key == "s") {
+        document.getElementById("anno_false_btn").click();
+    }
+    if (e.key == "f") {
+        document.getElementById("anno_skip_btn").click();
+    }
+
+}
+document.addEventListener('keyup', shortcuts, false);
+</script>
+"""
+
+with gr.Blocks(head=shortcut_js, theme = gr.themes.Soft()) as demo:
     db = gr.State()
     index_text = gr.State()
     index_db = gr.State()
@@ -166,10 +174,10 @@ with gr.Blocks(theme = gr.themes.Soft()) as demo:
             with gr.Row():
                 image_output = gr.Image(interactive = False, container = False)
             with gr.Row():
-                true_button = gr.Button('True', variant="primary")
-                false_button = gr.Button('False')
+                true_button = gr.Button('True', variant="primary", elem_id="anno_true_btn")
+                false_button = gr.Button('False', elem_id="anno_false_btn")
             with gr.Row():
-                skip_button = gr.Button('Unkown')
+                skip_button = gr.Button('unknown', elem_id="anno_skip_btn")
         with gr.Column(scale=2):
             gr.Markdown("""# Huray Label Studio""")
             with gr.Row():
@@ -177,15 +185,16 @@ with gr.Blocks(theme = gr.themes.Soft()) as demo:
                 work_check = gr.Checkbox(label="미작업 라벨만 보기")
             with gr.Row():
                 start_button = gr.Button('start', variant="primary")
-                index_text = gr.Textbox(label = 'index', max_lines = 1)
+                index_text = gr.Textbox(label = 'index', max_lines = 1, elem_id="input_index")
                 index_button = gr.Button('move')
                 class_text = gr.Textbox(label = 'class name',  interactive = False, max_lines = 1)
                 anno_text = gr.Textbox(label = 'annotation', interactive = False, max_lines = 1)
                 prev_button = gr.Button('prev')
                 next_button = gr.Button('next')
+
     true_anno = gr.Textbox(value = 'True', visible = False, interactive = False, max_lines = 1)
     false_anno = gr.Textbox(value = 'False', visible = False, interactive = False, max_lines = 1)
-    skip_anno = gr.Textbox(value = 'Skip', visible = False, interactive = False, max_lines = 1)
+    skip_anno = gr.Textbox(value = 'unknown', visible = False, interactive = False, max_lines = 1)
 
     prev_text = gr.Textbox(value = 'prev', visible =False, interactive = False, max_lines = 1)
     next_text = gr.Textbox(value = 'next', visible =False, interactive = False, max_lines = 1)
