@@ -51,9 +51,12 @@ def filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = 
     anno_text = retrieved_data_dict.get('annotation', '')
     while anno_text:
         index = index_changer(index, increase = increase)
+        if index < 0:
+            gr.Warning("첫번째 데이터입니다.")
+            break
         retrieved_data_dict = get_image_data(user_dropdown, index)
         anno_text = retrieved_data_dict.get('annotation', '')
-
+        
     return index, retrieved_data_dict
     
 def put_anno_data_to_db(user_name, index, anno):
@@ -102,11 +105,11 @@ def start_func(user_dropdown, work_check):
     class_name = retrieved_data_dict['class_name']
     anno_text = retrieved_data_dict.get('annotation', '')
 
-    return display_image(image_file_path), class_name, anno_text, index, item_length
+    return display_image(image_file_path), class_name, anno_text, index, int(item_length) - 1
 
 def anno_func(user_dropdown, anno, index, work_check):
     if not user_dropdown:
-        raise gr.Error("사용자를 선택해 주세요!")
+        raise gr.Error("사용자를 선택해 주세요.")
     index = put_anno_data_to_db(user_dropdown, index, anno)
     retrieved_data_dict = get_image_data(user_dropdown, index)
     if work_check:
@@ -118,8 +121,9 @@ def anno_func(user_dropdown, anno, index, work_check):
     return display_image(image_file_path), class_name, anno_text, index
 
 def move_func(user_dropdown, status, index, work_check, item_length):
+    start_index = index
     if not user_dropdown:
-        raise gr.Error("사용자를 선택해 주세요!")
+        raise gr.Error("사용자를 선택해 주세요.")
     if status == 'prev':
         increase = False
         if int(index) == 0:
@@ -128,17 +132,22 @@ def move_func(user_dropdown, status, index, work_check, item_length):
             index = index_changer(index, increase = increase)
     else:
         increase = True
-        if int(index) > int(item_length):
-            raise gr.Error('데이터 범주이상의 데이터입니다.')
         if status == 'next':
             if int(index) == int(item_length):
                 gr.Warning('마지막 데이터입니다.')
             else:
                 index = index_changer(index, increase = increase)
+        if status == 'move':
+            if int(index) > int(item_length):
+                gr.Warning('데이터 범주이상의 데이터입니다.')
+                index = int(item_length) 
+
     retrieved_data_dict = get_image_data(user_dropdown, index)
     if work_check:
         index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = increase)
-
+        if int(index) < 0:
+            retrieved_data_dict = get_image_data(user_dropdown, start_index)
+            index = start_index
     image_file_path = retrieved_data_dict['file_path']
     class_name = retrieved_data_dict['class_name']
     anno_text = retrieved_data_dict.get('annotation', '')
@@ -189,7 +198,8 @@ with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
                 work_check = gr.Checkbox(label="미작업 라벨만 보기")
             with gr.Row():
                 start_button = gr.Button('start', variant="primary")
-                index_text = gr.Textbox(label = 'index', max_lines = 1, elem_id="input_index")
+                index_text = gr.Textbox(label = 'index', max_lines = 1)
+                item_length = gr.Textbox(label = 'max index', interactive = False, max_lines = 1)
                 index_button = gr.Button('move')
                 class_text = gr.Textbox(label = 'class name',  interactive = False, max_lines = 1)
                 anno_text = gr.Textbox(label = 'annotation', interactive = False, max_lines = 1)
@@ -203,7 +213,7 @@ with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
     prev_text = gr.Textbox(value = 'prev', visible =False, interactive = False, max_lines = 1)
     next_text = gr.Textbox(value = 'next', visible =False, interactive = False, max_lines = 1)
     move_text = gr.Textbox(value = 'move', visible =False, interactive = False, max_lines = 1)
-    item_length = gr.Textbox(value = 'item_length', visible =False, interactive = False, max_lines = 1)
+    
 
     start_button.click(start_func, inputs = [user_dropdown, work_check], outputs = [image_output, class_text, anno_text, index_text, item_length])
     true_button.click(anno_func, inputs = [user_dropdown, true_anno, index_text, work_check], outputs = [image_output, class_text, anno_text, index_text])
