@@ -1,5 +1,6 @@
 import bsddb3.db as bdb
 import gradio as gr
+import os
 import pickle
 from PIL import Image as PILIMAGE
 
@@ -19,7 +20,7 @@ def get_index_db_conncection(index_db_path):
     return index_db
 
 def get_last_index(user_name):
-    index_db_path = f"{DBPATH}user_index.db"
+    index_db_path = os.path.join(DBPATH, "user_index.db")
     index_db = get_index_db_conncection(index_db_path)
     index = int(index_db.get(user_name.encode()).decode())
     index_db.close()
@@ -27,7 +28,7 @@ def get_last_index(user_name):
     return index
 
 def get_image_data(user_name, index, start = False):
-    db_path = f"{DBPATH}{user_name}.db"
+    db_path = os.path.join(DBPATH, f"{user_name}.db")
     db = get_db_connection(db_path)
     data_bytes = db.get(str(index).encode())
     retrieved_data_dict = pickle.loads(data_bytes)
@@ -56,8 +57,8 @@ def filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = 
     return index, retrieved_data_dict
     
 def put_anno_data_to_db(user_name, index, anno):
-    db_path = f"{DBPATH}{user_name}.db"
-    index_db_path = f"{DBPATH}user_index.db"
+    db_path = os.path.join(DBPATH, f"{user_name}.db")
+    index_db_path = os.path.join(DBPATH, "user_index.db")
 
     db = get_db_connection(db_path)
     index_db = get_index_db_conncection(index_db_path)
@@ -80,14 +81,16 @@ def put_anno_data_to_db(user_name, index, anno):
 def display_image(image_path):
     #FIXME ratio resize doesn't work!!
     img = PILIMAGE.open(image_path)
-    orign_width, orign_height = img.size
-    ratio = CFGHEIGHT / orign_height
-    resize_width = int(orign_width * ratio)
+    # orign_width, orign_height = img.size
+    # ratio = CFGHEIGHT / orign_height
+    # resize_width = int(orign_width * ratio)
     new_img = img.resize((500, 500), PILIMAGE.Resampling.LANCZOS)
 
     return new_img
 
 def start_func(user_dropdown, work_check):
+    if not user_dropdown:
+        raise gr.Error("사용자를 선택해 주세요!")
     if work_check:
         index = 0
     else:
@@ -98,10 +101,11 @@ def start_func(user_dropdown, work_check):
     image_file_path = retrieved_data_dict['file_path']
     class_name = retrieved_data_dict['class_name']
     anno_text = retrieved_data_dict.get('annotation', '')
+
     return display_image(image_file_path), class_name, anno_text, index, item_length
 
 def anno_func(user_dropdown, anno, index, work_check):
-    if index is None:
+    if not user_dropdown:
         raise gr.Error("사용자를 선택해 주세요!")
     index = put_anno_data_to_db(user_dropdown, index, anno)
     retrieved_data_dict = get_image_data(user_dropdown, index)
@@ -114,24 +118,24 @@ def anno_func(user_dropdown, anno, index, work_check):
     return display_image(image_file_path), class_name, anno_text, index
 
 def move_func(user_dropdown, status, index, work_check, item_length):
+    if not user_dropdown:
+        raise gr.Error("사용자를 선택해 주세요!")
     if status == 'prev':
         increase = False
         if int(index) == 0:
             gr.Warning('첫번째 데이터입니다.')
         else:
             index = index_changer(index, increase = increase)
-        retrieved_data_dict = get_image_data(user_dropdown, index)
     else:
         increase = True
-        if int(index) == int(item_length):
-            gr.Warning('마지막 데이터입니다.')
-            index = index_changer(index, increase = False)
+        if int(index) > int(item_length):
+            raise gr.Error('데이터 범주이상의 데이터입니다.')
         if status == 'next':
             if int(index) == int(item_length):
                 gr.Warning('마지막 데이터입니다.')
             else:
                 index = index_changer(index, increase = increase)
-        retrieved_data_dict = get_image_data(user_dropdown, index)
+    retrieved_data_dict = get_image_data(user_dropdown, index)
     if work_check:
         index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = increase)
 
@@ -160,7 +164,7 @@ document.addEventListener('keyup', shortcuts, false);
 </script>
 """
 
-with gr.Blocks(head=shortcut_js, theme = gr.themes.Soft()) as demo:
+with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
     db = gr.State()
     index_text = gr.State()
     index_db = gr.State()
@@ -174,7 +178,7 @@ with gr.Blocks(head=shortcut_js, theme = gr.themes.Soft()) as demo:
             with gr.Row():
                 image_output = gr.Image(interactive = False, container = False)
             with gr.Row():
-                true_button = gr.Button('True', variant="primary", elem_id="anno_true_btn")
+                true_button = gr.Button('True', variant="primary", elem_id = "anno_true_btn")
                 false_button = gr.Button('False', elem_id="anno_false_btn")
             with gr.Row():
                 skip_button = gr.Button('unknown', elem_id="anno_skip_btn")
