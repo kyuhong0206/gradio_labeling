@@ -5,9 +5,9 @@
     sudo apt-get update    
     sudo apt install libdb-dev    
 
-2. install korean font
-    sudo apt-get install fonts-nanum*
-    sudo fc-cache -fv
+2. install korean font    
+    sudo apt-get install fonts-nanum*    
+    sudo fc-cache -fv    
 
 3. create python env and install requirements    
 
