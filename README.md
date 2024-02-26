@@ -5,7 +5,8 @@
     sudo apt-get update    
     sudo apt install libdb-dev    
 
-2. install korean font    
+2. install korean font
+       
     sudo apt-get install fonts-nanum*    
     sudo fc-cache -fv    
 
