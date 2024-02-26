@@ -59,7 +59,7 @@ def filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = 
         
     return index, retrieved_data_dict
     
-def put_anno_data_to_db(user_name, index, anno):
+def put_anno_data_to_db(user_name, index, anno, item_length):
     db_path = os.path.join(DBPATH, f"{user_name}.db")
     index_db_path = os.path.join(DBPATH, "user_index.db")
 
@@ -71,8 +71,10 @@ def put_anno_data_to_db(user_name, index, anno):
     dict_bytes = pickle.dumps(retrieved_data_dict)
     db[str(index).encode()] = dict_bytes
     db.sync()
-
-    index = index_changer(index, increase = True)
+    if int(index) < int(item_length):
+        index = index_changer(index, increase = True)
+    else:
+        gr.Warning("마지막 데이터입니다.")
     index_db[user_name.encode()] = str(index).encode()
     index_db.sync()
 
@@ -107,10 +109,10 @@ def start_func(user_dropdown, work_check):
 
     return display_image(image_file_path), class_name, anno_text, index, int(item_length) - 1
 
-def anno_func(user_dropdown, anno, index, work_check):
+def anno_func(user_dropdown, anno, index, work_check, item_length):
     if not user_dropdown:
         raise gr.Error("사용자를 선택해 주세요.")
-    index = put_anno_data_to_db(user_dropdown, index, anno)
+    index = put_anno_data_to_db(user_dropdown, index, anno, item_length)
     retrieved_data_dict = get_image_data(user_dropdown, index)
     if work_check:
         index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict)
@@ -216,9 +218,9 @@ with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
     
 
     start_button.click(start_func, inputs = [user_dropdown, work_check], outputs = [image_output, class_text, anno_text, index_text, item_length])
-    true_button.click(anno_func, inputs = [user_dropdown, true_anno, index_text, work_check], outputs = [image_output, class_text, anno_text, index_text])
-    false_button.click(anno_func, inputs = [user_dropdown, false_anno, index_text, work_check], outputs = [image_output, class_text, anno_text, index_text])
-    skip_button.click(anno_func, inputs = [user_dropdown, skip_anno, index_text, work_check], outputs = [image_output, class_text, anno_text, index_text])
+    true_button.click(anno_func, inputs = [user_dropdown, true_anno, index_text, work_check, item_length], outputs = [image_output, class_text, anno_text, index_text])
+    false_button.click(anno_func, inputs = [user_dropdown, false_anno, index_text, work_check, item_length], outputs = [image_output, class_text, anno_text, index_text])
+    skip_button.click(anno_func, inputs = [user_dropdown, skip_anno, index_text, work_check, item_length], outputs = [image_output, class_text, anno_text, index_text])
     prev_button.click(move_func, inputs = [user_dropdown, prev_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
     next_button.click(move_func, inputs = [user_dropdown, next_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
     index_button.click(move_func, inputs = [user_dropdown, move_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
