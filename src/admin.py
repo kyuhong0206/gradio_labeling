@@ -2,9 +2,9 @@ import bsddb3.db as bdb
 import gradio as gr
 import pandas as pd
 import pickle
-from PIL import Image as PILIMAGE
 import matplotlib.pyplot as plt
 from matplotlib import font_manager, rc
+
 DBPATH = '/home/ai04/workspace/gradio_labeling/data/'
 CFGHEIGHT = 600
 
