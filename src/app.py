@@ -174,7 +174,13 @@ function shortcuts(e) {
 document.addEventListener('keyup', shortcuts, false);
 </script>
 """
-
+def same_auth(input_username, input_password):
+    username_list = ['user1', 'user2', 'user3']
+    password_dict = {'user1':'huray2580', 'user2': 'huray2580', 'user3':'huray2580'}
+    if input_username in username_list:
+        password = password_dict[input_username]
+        return password == input_password
+    
 with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
     db = gr.State()
     index_text = gr.State()
@@ -225,4 +231,4 @@ with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
     next_button.click(move_func, inputs = [user_dropdown, next_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
     index_button.click(move_func, inputs = [user_dropdown, move_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
 
-demo.launch(ssl_verify=False, share=True, server_name="0.0.0.0")
+demo.launch(ssl_verify=False, share=True, server_name="0.0.0.0", auth=same_auth)
