@@ -1,53 +1,41 @@
-import bsddb3.db as bdb
-import gradio as gr
-import os
+from datetime import datetime
 import pickle
+
+import gradio as gr
 from PIL import Image as PILIMAGE
+from PIL import ImageOps
 
-DBPATH = '/home/ai04/workspace/gradio_labeling/data/'
-CFGHEIGHT = 600
-
-def get_db_connection(db_path):
-    db = bdb.DB()
-    db.open(db_path, None, bdb.DB_HASH, bdb.DB_CREATE)
-
-    return db
-
-def get_index_db_conncection(index_db_path):
-    index_db = bdb.DB()
-    index_db.open(index_db_path, None, bdb.DB_HASH, bdb.DB_CREATE)
-
-    return index_db
-
-def get_last_index(user_name):
-    index_db_path = os.path.join(DBPATH, "user_index.db")
-    index_db = get_index_db_conncection(index_db_path)
-    index = int(index_db.get(user_name.encode()).decode())
-    index_db.close()
-
-    return index
-
-def get_image_data(user_name, index, start = False):
-    db_path = os.path.join(DBPATH, f"{user_name}.db")
-    db = get_db_connection(db_path)
-    data_bytes = db.get(str(index).encode())
-    retrieved_data_dict = pickle.loads(data_bytes)
-
-    if start:
-        item_length = len(db.keys())    
-        db.close()
-
-        return retrieved_data_dict, item_length
-    db.close()
-
-    return retrieved_data_dict
+from utils import get_db_connection, get_index_db_conncection, get_last_index, get_image_data
 
 def index_changer(index, increase = True):
+    """
+    Change(increase/decrease/target) index, filter user input mistakes (if string input in)
+
+    Args:
+    - index: current index
+    - increase: boolean data if true index will increase 
+
+    Returns:
+    - int: changed index
+    """
+    filtered_index = ''.join([char for char in str(index) if char.isdigit()])
     if increase:
-        return int(index) + 1
-    return int(index) -1
+        return int(filtered_index) + 1
+    return int(filtered_index) -1
 
 def filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = True):
+    """
+    Filters out data items that have no annotations and updates the index accordingly
+    
+    Args:
+    - user_dropdown: User-selected option
+    - index: Current data index
+    - retrieved_data_dict: Dictionary containing data items
+    - increase: Boolean flag to determine whether to increment or decrement the index (default is True)
+
+    Returns:
+    - tuple: Updated index and data dictionary
+    """
     anno_text = retrieved_data_dict.get('annotation', '')
     while anno_text:
         index = index_changer(index, increase = increase)
@@ -60,14 +48,28 @@ def filtering_worked_item(user_dropdown, index, retrieved_data_dict, increase = 
     return index, retrieved_data_dict
     
 def put_anno_data_to_db(user_name, index, anno, item_length):
-    db_path = os.path.join(DBPATH, f"{user_name}.db")
-    index_db_path = os.path.join(DBPATH, "user_index.db")
+    """
+    Stores annotation data into the database
 
-    db = get_db_connection(db_path)
-    index_db = get_index_db_conncection(index_db_path)
+    Args:
+    - user_name: Username of the annotator
+    - index: Index of the current data
+    - anno: Annotation text
+    - item_length: Total number of items
+
+    Returns:
+    - int: Updated data index
+    """
+    now = datetime.now()
+    db = get_db_connection(user_name)
+    index_db = get_index_db_conncection()
     retrieved_data_dict = get_image_data(user_name, index)
-
+    date = now.strftime('%Y-%m-%d')
+    time = now.strftime('%H:%M:%S')
     retrieved_data_dict['annotation'] = anno
+    retrieved_data_dict['datetime'] = date
+    retrieved_data_dict['index'] = index
+    retrieved_data_dict['anno_time'] = time
     dict_bytes = pickle.dumps(retrieved_data_dict)
     db[str(index).encode()] = dict_bytes
     db.sync()
@@ -84,16 +86,35 @@ def put_anno_data_to_db(user_name, index, anno, item_length):
     return index
 
 def display_image(image_path):
-    #FIXME ratio resize doesn't work!!
-    img = PILIMAGE.open(image_path)
-    # orign_width, orign_height = img.size
-    # ratio = CFGHEIGHT / orign_height
-    # resize_width = int(orign_width * ratio)
-    new_img = img.resize((500, 500), PILIMAGE.Resampling.LANCZOS)
+    """
+    Loads an image from a given path, resizes and pads it, then returns the modified image
 
-    return new_img
+    Args:
+    - image_path: Path to the image file
+
+    Returns:
+    - PIL.Image: The processed image object
+    """
+    CFGSIZE = 500
+    img = PILIMAGE.open(image_path)
+    resized_image = ImageOps.contain(img, (CFGSIZE,CFGSIZE))
+    width, height = resized_image.size
+    padded_image = PILIMAGE.new("RGB", (CFGSIZE,CFGSIZE), (255,255,255))
+    padded_image.paste(resized_image, ((CFGSIZE - width) // 2, (CFGSIZE - height) // 2))
+
+    return padded_image
 
 def start_func(user_dropdown, work_check):
+    """
+    Initializes data based on user selection and sets up the initial view
+
+    Args:
+    - user_dropdown: User-selected option
+    - work_check: Boolean flag indicating whether to start with initial data or resume
+
+    Returns:
+    - tuple: The display image, class name, annotation text, index, and item length minus one
+    """
     if not user_dropdown:
         raise gr.Error("사용자를 선택해 주세요!")
     if work_check:
@@ -109,20 +130,50 @@ def start_func(user_dropdown, work_check):
 
     return display_image(image_file_path), class_name, anno_text, index, int(item_length) - 1
 
-def anno_func(user_dropdown, anno, index, work_check, item_length):
+def anno_func(user_dropdown, anno, index, work_check, item_length, prev_class_text):
+    """
+    Processes annotations and updates the database accordingly, also manages data display
+
+    Args:
+    - user_dropdown: User-selected option
+    - anno: Annotation text to be saved
+    - index: Current index of data
+    - work_check: Boolean flag to check if additional filtering is needed
+    - item_length: Total number of items
+    - prev_class_text: Previous class text to check for any changes in class
+
+    Returns:
+    - tuple: Processed display image, current class name, current annotation text, and updated index
+    """
+    filtered_index = ''.join([char for char in index if char.isdigit()])
     if not user_dropdown:
         raise gr.Error("사용자를 선택해 주세요.")
-    index = put_anno_data_to_db(user_dropdown, index, anno, item_length)
+    index = put_anno_data_to_db(user_dropdown, filtered_index, anno, item_length)
     retrieved_data_dict = get_image_data(user_dropdown, index)
     if work_check:
         index, retrieved_data_dict = filtering_worked_item(user_dropdown, index, retrieved_data_dict)
     image_file_path = retrieved_data_dict['file_path']
     class_name = retrieved_data_dict['class_name']
     anno_text = retrieved_data_dict.get('annotation', '')
+    if prev_class_text != class_name:
+        gr.Warning("class가 변경되었습니다! 확인해주세요")
 
     return display_image(image_file_path), class_name, anno_text, index
 
 def move_func(user_dropdown, status, index, work_check, item_length):
+    """
+    Navigates through data entries based on user commands and updates the display accordingly
+
+    Args:
+    - user_dropdown: User-selected option
+    - status: Navigation command ('prev', 'next', or 'move')
+    - index: Current index of data
+    - work_check: Boolean flag to check if additional filtering is needed
+    - item_length: Total number of items
+
+    Returns:
+    - tuple: Processed display image, current class name, current annotation text, and updated index
+    """
     start_index = index
     if not user_dropdown:
         raise gr.Error("사용자를 선택해 주세요.")
@@ -163,11 +214,20 @@ function shortcuts(e) {
     if (e.key == "t") {
         document.getElementById("anno_true_btn").click();
     }
-    if (e.key == "s") {
+    if (e.key == "f") {
         document.getElementById("anno_false_btn").click();
     }
-    if (e.key == "f") {
+    if (e.key == "s") {
         document.getElementById("anno_skip_btn").click();
+    }
+    if (e.key == "Enter") {
+        document.getElementById("index_move_btn").click();
+    }
+    if (e.key == "ArrowLeft") {
+        document.getElementById("index_prev_btn").click();
+    }
+    if (e.key == "ArrowRight") {
+        document.getElementById("index_next_btn").click();
     }
 
 }
@@ -175,7 +235,7 @@ document.addEventListener('keyup', shortcuts, false);
 </script>
 """
 
-with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
+with gr.Blocks(head = shortcut_js, css = " .toast-wrap.svelte-pu0yf1 {top: 3%; left: 40%;}", theme = gr.themes.Soft()) as demo:
     db = gr.State()
     index_text = gr.State()
     index_db = gr.State()
@@ -184,6 +244,7 @@ with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
     user_dropdown = gr.State()
     work_check = gr.State()
     item_length = gr.State()
+    
     with gr.Row():
         with gr.Column(scale=10):
             with gr.Row():
@@ -194,19 +255,19 @@ with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
             with gr.Row():
                 skip_button = gr.Button('unknown', elem_id="anno_skip_btn")
         with gr.Column(scale=2):
-            gr.Markdown("""# Huray Label Studio""")
+            gr.Markdown("""# Gradio Label Studio""")
             with gr.Row():
-                user_dropdown = gr.Dropdown(["test", "test2", "test3"], label = "user")
+                user_dropdown = gr.Dropdown(["user_list"], label = "user")
                 work_check = gr.Checkbox(label="미작업 라벨만 보기")
             with gr.Row():
                 start_button = gr.Button('start', variant="primary")
                 index_text = gr.Textbox(label = 'index', max_lines = 1)
                 item_length = gr.Textbox(label = 'max index', interactive = False, max_lines = 1)
-                index_button = gr.Button('move')
+                index_move_button = gr.Button('move', elem_id="index_move_btn")
                 class_text = gr.Textbox(label = 'class name',  interactive = False, max_lines = 1)
                 anno_text = gr.Textbox(label = 'annotation', interactive = False, max_lines = 1)
-                prev_button = gr.Button('prev')
-                next_button = gr.Button('next')
+                prev_button = gr.Button('prev', elem_id="index_prev_btn")
+                next_button = gr.Button('next', elem_id="index_next_btn")
 
     true_anno = gr.Textbox(value = 'True', visible = False, interactive = False, max_lines = 1)
     false_anno = gr.Textbox(value = 'False', visible = False, interactive = False, max_lines = 1)
@@ -217,12 +278,12 @@ with gr.Blocks(head = shortcut_js, theme = gr.themes.Soft()) as demo:
     move_text = gr.Textbox(value = 'move', visible =False, interactive = False, max_lines = 1)
     
 
-    start_button.click(start_func, inputs = [user_dropdown, work_check], outputs = [image_output, class_text, anno_text, index_text, item_length])
-    true_button.click(anno_func, inputs = [user_dropdown, true_anno, index_text, work_check, item_length], outputs = [image_output, class_text, anno_text, index_text])
-    false_button.click(anno_func, inputs = [user_dropdown, false_anno, index_text, work_check, item_length], outputs = [image_output, class_text, anno_text, index_text])
-    skip_button.click(anno_func, inputs = [user_dropdown, skip_anno, index_text, work_check, item_length], outputs = [image_output, class_text, anno_text, index_text])
-    prev_button.click(move_func, inputs = [user_dropdown, prev_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
-    next_button.click(move_func, inputs = [user_dropdown, next_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
-    index_button.click(move_func, inputs = [user_dropdown, move_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
+    start_button.click(start_func, inputs = [user_dropdown, work_check], outputs = [image_output,class_text, anno_text, index_text, item_length])
+    true_button.click(anno_func, inputs = [user_dropdown, true_anno, index_text, work_check, item_length, class_text], outputs = [image_output, class_text, anno_text, index_text])
+    false_button.click(anno_func, inputs = [user_dropdown, false_anno, index_text, work_check, item_length, class_text], outputs = [image_output,class_text, anno_text, index_text])
+    skip_button.click(anno_func, inputs = [user_dropdown, skip_anno, index_text, work_check, item_length, class_text], outputs = [image_output,class_text, anno_text, index_text])
+    prev_button.click(move_func, inputs = [user_dropdown, prev_text, index_text, work_check, item_length], outputs=[image_output,class_text, anno_text, index_text])
+    next_button.click(move_func, inputs = [user_dropdown, next_text, index_text, work_check, item_length], outputs=[image_output,class_text, anno_text, index_text])
+    index_move_button.click(move_func, inputs = [user_dropdown, move_text, index_text, work_check, item_length], outputs=[image_output, class_text, anno_text, index_text])
 
-demo.launch(ssl_verify=False, share=True, server_name="0.0.0.0")
+demo.launch(ssl_verify=False, share=True, server_name="0.0.0.0", max_threads = 30, show_api = False, state_session_capacity = 1000)
