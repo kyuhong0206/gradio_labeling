@@ -11,6 +11,23 @@
     sudo apt-get install fonts-nanum*    
     sudo fc-cache -fv    
 
-3. create python env and install requirements    
+3. create python env and install requirements
+    
+4. $gradio app.py
+
+
+app.py : main page for annotating data    
+make_db.py: init db for first work    
+admin.py: analysis user task statistics.
+
+DB format
+```json
+"file_path" : image file path(str)
+"class_name": image file class name (str)
+"annotation": annotations (str) -> True/False/unknown
+"datetime": Recorded date(datetime)
+"index": unique index number (int)
+"pre_anno": with or without pre-annotation(bool)
+```
 
 
